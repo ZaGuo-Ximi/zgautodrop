@@ -1,0 +1,55 @@
+plugins {
+	id 'net.fabricmc.fabric-loom' version '1.18-SNAPSHOT'
+	id 'maven-publish'
+}
+
+version = project.version
+group = project.group
+
+base {
+	archivesName = project.archives_base_name
+}
+
+repositories {
+	maven {
+		name = 'Fabric'
+		url = 'https://maven.fabricmc.net/'
+	}
+	maven {
+		name = 'TerraformersMC'
+		url = 'https://maven.terraformersmc.com/releases/'
+	}
+	maven { url = 'https://maven.aliyun.com/repository/public' }
+	maven { url = 'https://maven.aliyun.com/repository/gradle-plugin' }
+	mavenCentral()
+}
+
+dependencies {
+	minecraft "com.mojang:minecraft:${project.minecraft_version}"
+	implementation "net.fabricmc:fabric-loader:${project.loader_version}"
+	implementation "net.fabricmc.fabric-api:fabric-api:${project.fabric_api_version}"
+	compileOnly "com.terraformersmc:modmenu:18.0.0"
+}
+
+java {
+	toolchain {
+		languageVersion = JavaLanguageVersion.of(25)
+	}
+	withSourcesJar()
+}
+
+tasks.processResources {
+	def ver = project.version
+	inputs.property("version", ver)
+	filesMatching("fabric.mod.json") {
+		expand(["version": ver])
+	}
+}
+
+tasks.withType(JavaCompile).configureEach {
+	options.encoding = "UTF-8"
+}
+// 禁用配置缓存（和 Fabric 模板的 processResources 不兼容）
+tasks.withType(ProcessResources).configureEach {
+	// 空
+}

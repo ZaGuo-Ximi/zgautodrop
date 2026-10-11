@@ -1,0 +1,28 @@
+{
+	"schemaVersion": 1,
+	"id": "zgautodrop",
+	"version": "${version}",
+	"name": "ZgAutoDrop",
+	"description": "自动丢物品，支持黑白名单、NBT 多层嵌套、方案切换。",
+	"authors": [
+		"杂果"
+	],
+	"contact": {},
+	"license": "CC0-1.0",
+	"icon": "assets/zgautodrop/icon.png",
+	"environment": "client",
+	"entrypoints": {
+		"client": [
+			"com.zgmod.autodrop.ZgAutoDropClient"
+		],
+		"modmenu": [
+			"com.zgmod.autodrop.ZgAutoDropModMenu"
+		]
+	},
+	"depends": {
+		"fabricloader": ">=0.19.2",
+		"minecraft": "~26.1.2",
+		"java": ">=25",
+		"fabric-api": "*"
+	}
+}
