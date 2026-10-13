@@ -8,7 +8,7 @@
 		"杂果"
 	],
 	"contact": {},
-	"license": "CC0-1.0",
+	"license": "MIT",
 	"icon": "assets/zgautodrop/icon.png",
 	"environment": "client",
 	"entrypoints": {
