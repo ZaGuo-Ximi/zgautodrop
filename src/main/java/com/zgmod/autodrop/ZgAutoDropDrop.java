@@ -10,6 +10,9 @@ import net.minecraft.world.inventory.ContainerInput;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.component.CustomData;
 
+import java.util.regex.Pattern;
+import java.util.regex.PatternSyntaxException;
+
 public class ZgAutoDropDrop {
 
     public static boolean shouldDrop(ItemStack stack) {
@@ -43,6 +46,16 @@ public class ZgAutoDropDrop {
         String actual = getValueByPath(stack, path);
         if (actual == null) return false;
 
+        // 正则模式
+        if (ZgAutoDropConfig.useRegex) {
+            try {
+                return Pattern.compile(expected).matcher(actual).find();
+            } catch (PatternSyntaxException e) {
+                return false;
+            }
+        }
+
+        // 通配符模式
         return wildcardMatch(actual, expected);
     }
 
@@ -99,6 +112,50 @@ public class ZgAutoDropDrop {
         return true;
     }
 
+    public static boolean tryDrop(Minecraft client, ItemStack stack) {
+        if (client.player == null || client.gameMode == null) return false;
+        LocalPlayer player = client.player;
+
+        for (int i = 0; i < player.containerMenu.slots.size(); i++) {
+            var slot = player.containerMenu.slots.get(i);
+            if (!slot.hasItem()) continue;
+            ItemStack slotStack = slot.getItem();
+            if (!ItemStack.isSameItemSameComponents(slotStack, stack)) continue;
+
+            try {
+                if (!ZgAutoDropConfig.dropWholeStack && slotStack.getCount() > 1) {
+                    client.gameMode.handleContainerInput(
+                            player.containerMenu.containerId,
+                            slot.index,
+                            0,
+                            ContainerInput.PICKUP,
+                            player
+                    );
+                    client.gameMode.handleContainerInput(
+                            player.containerMenu.containerId,
+                            -999,
+                            0,
+                            ContainerInput.THROW,
+                            player
+                    );
+                } else {
+                    client.gameMode.handleContainerInput(
+                            player.containerMenu.containerId,
+                            slot.index,
+                            1,
+                            ContainerInput.THROW,
+                            player
+                    );
+                }
+            } catch (Exception e) {
+                e.printStackTrace();
+                return false;
+            }
+            return true;
+        }
+        return false;
+    }
+
     public static void doAutoDrop(Minecraft client) {
         if (!ZgAutoDropConfig.autoDropEnabled) return;
         LocalPlayer player = client.player;
@@ -110,17 +167,7 @@ public class ZgAutoDropDrop {
             if (!slot.hasItem()) continue;
             ItemStack stack = slot.getItem();
             if (shouldDrop(stack)) {
-                try {
-                    client.gameMode.handleContainerInput(
-                            player.containerMenu.containerId,
-                            slot.index,
-                            1,
-                            ContainerInput.THROW,
-                            player
-                    );
-                } catch (Exception e) {
-                    e.printStackTrace();
-                }
+                tryDrop(client, stack);
                 return;
             }
         }

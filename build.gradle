@@ -29,6 +29,7 @@ dependencies {
 	implementation "net.fabricmc:fabric-loader:${project.loader_version}"
 	implementation "net.fabricmc.fabric-api:fabric-api:${project.fabric_api_version}"
 	compileOnly "com.terraformersmc:modmenu:18.0.0"
+	implementation "org.lwjgl:lwjgl-glfw:3.4.1"// 手动引入 LWJGL GLFW（26.3 需要）
 }
 
 java {

@@ -1,5 +1,7 @@
 package com.zgmod.autodrop;
 
+import com.google.gson.Gson;
+import com.google.gson.GsonBuilder;
 import com.mojang.blaze3d.platform.InputConstants;
 import com.mojang.brigadier.arguments.IntegerArgumentType;
 import com.mojang.brigadier.arguments.StringArgumentType;
@@ -18,25 +20,23 @@ public class ZgAutoDropClient implements ClientModInitializer {
     private static KeyMapping toggleKey;
     private static KeyMapping configKey;
     private static int dropTimer = 0;
+    private static final Gson GSON = new GsonBuilder().create();
 
     @Override
     public void onInitializeClient() {
         ZgAutoDropConfig.load();
 
-        // ===== 按键分类 =====
         KeyMapping.Category CATEGORY = KeyMapping.Category.register(
                 Identifier.fromNamespaceAndPath("zgautodrop", "custom_category")
         );
 
-        // 开关键（默认 H）
         toggleKey = KeyMappingHelper.registerKeyMapping(new KeyMapping(
                 "key.zgautodrop.toggle",
-                InputConstants.Type.KEYSYM,
+                InputConstants.Type.KEYSYM,  // 26.2 用 KEYSYM
                 GLFW.GLFW_KEY_H,
                 CATEGORY
         ));
 
-        // 打开配置键（默认 J）
         configKey = KeyMappingHelper.registerKeyMapping(new KeyMapping(
                 "key.zgautodrop.config",
                 InputConstants.Type.KEYSYM,
@@ -44,9 +44,7 @@ public class ZgAutoDropClient implements ClientModInitializer {
                 CATEGORY
         ));
 
-        // ===== Tick 事件 =====
         ClientTickEvents.END_CLIENT_TICK.register(client -> {
-            // 按 H 切换自动丢物品
             while (toggleKey.consumeClick()) {
                 ZgAutoDropConfig.autoDropEnabled = !ZgAutoDropConfig.autoDropEnabled;
                 if (client.player != null) {
@@ -55,13 +53,10 @@ public class ZgAutoDropClient implements ClientModInitializer {
                 }
             }
 
-            // 按 J 打开配置界面
             while (configKey.consumeClick()) {
-                //client.gui.setScreen(new ZgAutoDropRuleScreen(null));//26.2
-                client.setScreen(new ZgAutoDropRuleScreen(null));//26.1.2
+                client.gui.setScreen(new ZgAutoDropRuleScreen(null));
             }
 
-            // 每 20 tick 扫一次背包
             dropTimer++;
             if (dropTimer >= 20) {
                 dropTimer = 0;
@@ -69,7 +64,6 @@ public class ZgAutoDropClient implements ClientModInitializer {
             }
         });
 
-        // ===== 命令 =====
         ClientCommandRegistrationCallback.EVENT.register((dispatcher, registryAccess) -> {
             dispatcher.register(ClientCommands.literal("zgdrop")
                     .then(ClientCommands.literal("on")
@@ -120,11 +114,67 @@ public class ZgAutoDropClient implements ClientModInitializer {
                                         }
                                         return 1;
                                     })))
+                    .then(ClientCommands.literal("mode")
+                            .executes(ctx -> {
+                                ZgAutoDropConfig.dropWholeStack = !ZgAutoDropConfig.dropWholeStack;
+                                ZgAutoDropConfig.save();
+                                ctx.getSource().sendFeedback(Component.literal(
+                                        "§a丢物品模式: " + (ZgAutoDropConfig.dropWholeStack ? "整组" : "单个")));
+                                return 1;
+                            }))
+                    .then(ClientCommands.literal("regex")
+                            .executes(ctx -> {
+                                ZgAutoDropConfig.useRegex = !ZgAutoDropConfig.useRegex;
+                                ZgAutoDropConfig.save();
+                                ctx.getSource().sendFeedback(Component.literal(
+                                        "§a匹配模式: " + (ZgAutoDropConfig.useRegex ? "正则" : "通配符")));
+                                return 1;
+                            }))
+                    .then(ClientCommands.literal("export")
+                            .executes(ctx -> {
+                                try {
+                                    java.nio.file.Path path = net.fabricmc.loader.api.FabricLoader.getInstance()
+                                            .getConfigDir().resolve("zgautodrop_export.json");
+                                    java.nio.file.Files.writeString(path, new com.google.gson.GsonBuilder().setPrettyPrinting().create()
+                                            .toJson(ZgAutoDropConfig.currentScheme()));
+                                    ctx.getSource().sendFeedback(Component.literal(
+                                            "§a已导出方案到: .minecraft/config/zgautodrop_export.json"));
+                                } catch (Exception e) {
+                                    ctx.getSource().sendFeedback(Component.literal("§c导出失败: " + e.getMessage()));
+                                }
+                                return 1;
+                            }))
+                    .then(ClientCommands.literal("import")
+                            .executes(ctx -> {
+                                try {
+                                    java.nio.file.Path path = net.fabricmc.loader.api.FabricLoader.getInstance()
+                                            .getConfigDir().resolve("zgautodrop_export.json");
+                                    if (!java.nio.file.Files.exists(path)) {
+                                        ctx.getSource().sendFeedback(Component.literal("§c找不到导出文件"));
+                                        return 1;
+                                    }
+                                    String json = java.nio.file.Files.readString(path);
+                                    ZgAutoDropConfig.Scheme scheme = GSON.fromJson(json, ZgAutoDropConfig.Scheme.class);
+                                    if (scheme != null) {
+                                        ZgAutoDropConfig.currentScheme().dropRules = scheme.dropRules;
+                                        ZgAutoDropConfig.currentScheme().keepRules = scheme.keepRules;
+                                        ZgAutoDropConfig.save();
+                                        ctx.getSource().sendFeedback(
+                                                Component.literal("§a已导入方案到: " + ZgAutoDropConfig.activeScheme));
+                                    }
+                                } catch (Exception e) {
+                                    ctx.getSource().sendFeedback(
+                                            Component.literal("§c导入失败: " + e.getMessage()));
+                                }
+                                return 1;
+                            }))
                     .then(ClientCommands.literal("list")
                             .executes(ctx -> {
                                 var scheme = ZgAutoDropConfig.currentScheme();
                                 ctx.getSource().sendFeedback(Component.literal("§6===== 方案: " + ZgAutoDropConfig.activeScheme + " ====="));
                                 ctx.getSource().sendFeedback(Component.literal("§e状态: " + (ZgAutoDropConfig.autoDropEnabled ? "§a开" : "§c关")));
+                                ctx.getSource().sendFeedback(Component.literal("§e模式: " + (ZgAutoDropConfig.dropWholeStack ? "整组" : "单个")));
+                                ctx.getSource().sendFeedback(Component.literal("§e匹配: " + (ZgAutoDropConfig.useRegex ? "正则" : "通配符")));
                                 ctx.getSource().sendFeedback(Component.literal("§e黑名单:"));
                                 for (int i = 0; i < scheme.dropRules.size(); i++) {
                                     ctx.getSource().sendFeedback(

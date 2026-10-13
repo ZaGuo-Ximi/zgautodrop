@@ -14,8 +14,10 @@ import java.util.Map;
 
 public class ZgAutoDropConfig {
 
-    // ===== 开关（默认关） =====
+    // ===== 开关 =====
     public static boolean autoDropEnabled = false;
+    public static boolean dropWholeStack = true;
+    public static boolean useRegex = false;   // 正则模式
 
     // ===== 方案系统 =====
     public static Map<String, Scheme> schemes = new LinkedHashMap<>();
@@ -44,7 +46,9 @@ public class ZgAutoDropConfig {
             String json = Files.readString(CONFIG_PATH);
             Data data = GSON.fromJson(json, Data.class);
             if (data != null) {
-                autoDropEnabled = false;   // 强制默认关
+                autoDropEnabled = false;
+                dropWholeStack = data.dropWholeStack;
+                useRegex = data.useRegex;
                 if (data.schemes != null && !data.schemes.isEmpty()) {
                     schemes = data.schemes;
                 }
@@ -60,6 +64,8 @@ public class ZgAutoDropConfig {
     public static void save() {
         try {
             Data data = new Data();
+            data.dropWholeStack = dropWholeStack;
+            data.useRegex = useRegex;
             data.schemes = schemes;
             data.activeScheme = activeScheme;
             Files.writeString(CONFIG_PATH, GSON.toJson(data));
@@ -69,6 +75,8 @@ public class ZgAutoDropConfig {
     }
 
     private static class Data {
+        boolean dropWholeStack = true;
+        boolean useRegex = false;
         Map<String, Scheme> schemes = new LinkedHashMap<>();
         String activeScheme = "default";
     }
